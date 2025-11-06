@@ -8,7 +8,7 @@
     <script src="https://unpkg.com/jspsych@8.2.2"></script>
     <link href="https://unpkg.com/jspsych@8.2.2/css/jspsych.css" rel="stylesheet" />
 
-    <!-- Plugins (keep versions consistent) -->
+    <!-- Plugins -->
     <script src="https://unpkg.com/@jspsych/plugin-preload@2.1.0"></script>
     <script src="https://unpkg.com/@jspsych/plugin-instructions@2.1.0"></script>
     <script src="https://unpkg.com/@jspsych/plugin-survey-likert@2.1.0"></script>
@@ -21,10 +21,55 @@
       .note { font-size: .9rem; color:#666; margin-top:.25rem; text-align:center; }
     </style>
   </head>
+
   <body>
+    <!-- 🚀 Firebase setup -->
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js";
+      import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore.js";
+      import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-auth.js";
+
+      // Your Firebase configuration
+      const firebaseConfig = {
+        apiKey: "AIzaSyB6zipY3htZpzU1xuvcmSYqDK4NXUcoT_Q",
+        authDomain: "jspsychtest-5acaa.firebaseapp.com",
+        projectId: "jspsychtest-5acaa",
+        storageBucket: "jspsychtest-5acaa.firebasestorage.app",
+        messagingSenderId: "977014804391",
+        appId: "1:977014804391:web:7fe7fd57ad3890045d3082"
+      };
+
+      // Initialize Firebase services
+      const app = initializeApp(firebaseConfig);
+      const db = getFirestore(app);
+      const auth = getAuth(app);
+
+      // Sign in anonymously (so Firestore rules allow write)
+      await signInAnonymously(auth);
+
+      // Make a random participant ID
+      const participantId = crypto.randomUUID();
+
+      // Define a helper function for saving each trial
+      window.saveTrial = async (trialData) => {
+        try {
+          const trialsRef = collection(db, "experiments", "faces_demo", "trials");
+          await addDoc(trialsRef, {
+            participantId,
+            createdAt: serverTimestamp(),
+            ...trialData
+          });
+          console.log("✅ Trial saved");
+        } catch (e) {
+          console.error("❌ Error saving trial:", e);
+        }
+      };
+    </script>
+
+    <!-- 🧠 Your jsPsych experiment -->
     <script>
       window.addEventListener('load', function () {
-        // 1) Images (ensure these paths exist relative to this HTML file)
+
         const image_files = [
           "images_test/portrait_1.png",
           "images_test/portrait_2.png",
@@ -32,43 +77,41 @@
           "images_test/portrait_4.png",
           "images_test/portrait_5.png"
         ];
-        const N_RANDOM = 3; // 0 => use all
+        const N_RANDOM = 3;
 
-        // 2) Init
         const jsPsych = initJsPsych({
-          on_finish: () => {
-            // Some browsers block auto-downloads not triggered by a click.
-            // We save again on the final Instructions screen (user-initiated).
-            try { jsPsych.data.get().localSave('csv', 'faces_demo_data.csv'); } catch(e) { /* no-op */ }
+          on_data_update: async (data) => {
+            // Save each trial to Firestore as it finishes
+            if (window.saveTrial) await window.saveTrial(data);
           },
-          'override_safe_mode': true
+          on_finish: () => {
+            // Local download fallback
+            try { jsPsych.data.get().localSave('csv', 'faces_demo_data.csv'); } catch(e) { }
+          },
+          override_safe_mode: true
         });
 
-        // Participant props
         const pid = Math.random().toString(36).slice(2, 8);
         jsPsych.data.addProperties({ participant_id: pid, started_at: new Date().toISOString() });
 
-        // 3) Preload
         const preload = {
           type: jsPsychPreload,
           images: image_files,
           message: 'Loading images…',
-          continue_after_error: true // don’t stall if one image is missing
+          continue_after_error: true
         };
 
-        // 4) Welcome
         const welcome = {
           type: jsPsychInstructions,
           pages: [
             `<h2>Welcome!</h2>
              <p>You’ll answer a few questions, then rate some faces.</p>
-             <p>A CSV will download at the end.</p>`,
+             <p>Your data will be saved online and downloaded locally at the end.</p>`,
             `<p>Press <strong>Next</strong> to begin.</p>`
           ],
           show_clickable_nav: true
         };
 
-        // 5) SDO items (one per page)
         const sdo_items = [
           { text: "Some groups of people are simply inferior to other groups.", name: "SDO1" },
           { text: "It is okay if some groups have more of a chance in life than others.", name: "SDO2" },
@@ -76,22 +119,19 @@
         ];
         const sdo_trials = sdo_items.map(item => ({
           type: jsPsychSurveyLikert,
-          preamble: `<h3>Social Attitudes</h3>
-                     <p>Please indicate how much you agree or disagree.</p>`,
+          preamble: `<h3>Social Attitudes</h3><p>Please indicate how much you agree or disagree.</p>`,
           questions: [{
             prompt: item.text,
-            labels: ["1 (Strongly disagree)", "2","3","4","5","6","7 (Strongly agree)"],
+            labels: ["1 (Strongly disagree)","2","3","4","5","6","7 (Strongly agree)"],
             required: true,
             name: item.name
           }],
           data: { section: "SDO", item: item.name }
         }));
 
-        // 6) Randomize faces (optional subset)
         let shuffled = jsPsych.randomization.shuffle(image_files);
         if (N_RANDOM > 0 && N_RANDOM <= shuffled.length) shuffled = shuffled.slice(0, N_RANDOM);
 
-        // 7) Face trials
         const trials = shuffled.flatMap((imgPath, idx) => {
           const preambleHTML = `
             <img class="face" src="${imgPath}" alt="face ${idx+1}" />
@@ -117,7 +157,6 @@
             preamble: preambleHTML,
             questions: [{ prompt: "Guess their age (number):", placeholder: "e.g., 32", required: true, name: "age_guess" }],
             on_finish: d => {
-              // Optional: coerce to number for convenience
               if (d.response && typeof d.response.age_guess === 'string') {
                 const n = Number(d.response.age_guess.trim());
                 d.age_guess_num = Number.isFinite(n) ? n : null;
@@ -128,24 +167,22 @@
           return [likert, multi, age];
         });
 
-        // 8) Goodbye (use user click to ensure download is allowed)
         const goodbye = {
           type: jsPsychInstructions,
           pages: [
             `<h2>Done!</h2>
-             <p>Your data will download as <code>faces_demo_data.csv</code>.</p>
+             <p>Your data has been uploaded and will download as <code>faces_demo_data.csv</code>.</p>
              <p>If it didn’t auto-start, click Next.</p>`
           ],
           show_clickable_nav: true,
           button_label_next: "Download data",
           on_finish: () => {
             try { jsPsych.data.get().localSave('csv', 'faces_demo_data.csv'); } catch(e) {
-              console.warn('Download may be blocked by the browser:', e);
+              console.warn('Download may be blocked:', e);
             }
           }
         };
 
-        // 9) Run
         jsPsych.run([preload, welcome, ...sdo_trials, ...trials, goodbye]);
       });
     </script>
