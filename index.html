@@ -19,57 +19,68 @@
       body { max-width: 900px; margin: 2rem auto; }
       .face { display:block; margin: 0 auto 1rem; max-width: 320px; height:auto; border-radius: 8px; }
       .note { font-size: .9rem; color:#666; margin-top:.25rem; text-align:center; }
+      #upload-status { text-align:center; color:#666; margin:.5rem 0; }
     </style>
   </head>
 
   <body>
-    <!-- 🚀 Firebase setup -->
-    <script type="module">
-      import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js";
-      import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore.js";
-      import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-auth.js";
+    <div id="upload-status"></div>
 
-      // Your Firebase configuration
-      const firebaseConfig = {
-        apiKey: "AIzaSyB6zipY3htZpzU1xuvcmSYqDK4NXUcoT_Q",
-        authDomain: "jspsychtest-5acaa.firebaseapp.com",
-        projectId: "jspsychtest-5acaa",
-        storageBucket: "jspsychtest-5acaa.firebasestorage.app",
-        messagingSenderId: "977014804391",
-        appId: "1:977014804391:web:7fe7fd57ad3890045d3082"
-      };
+    <!-- ✅ Apps Script sender -->
+    <script>
+      // Your deployed Web App URL (must end with /exec)
+      const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxidwfVa_dt907WHFEDqBFrfHwKXvF65AUij1TtO2N-o0ObLJg1Jtuq-zeIq_cpk6XE/exec";
+      // MUST match the SHARED_SECRET in your Apps Script
+      const SHARED_SECRET = "abc123-change-me";
 
-      // Initialize Firebase services
-      const app = initializeApp(firebaseConfig);
-      const db = getFirestore(app);
-      const auth = getAuth(app);
-
-      // Sign in anonymously (so Firestore rules allow write)
-      await signInAnonymously(auth);
-
-      // Make a random participant ID
       const participantId = crypto.randomUUID();
+      const trialBuffer = [];
+      const statusEl = () => document.getElementById("upload-status");
 
-      // Define a helper function for saving each trial
-      window.saveTrial = async (trialData) => {
+      function bufferTrial(d) {
+        // compact, serializable per-trial record
+        trialBuffer.push({
+          t: d.trial_type ?? null,
+          page: d.page ?? null,
+          img: d.image ?? null,
+          rt: d.rt ?? null,
+          r: d.response ?? null,
+          ts: new Date().toISOString()
+        });
+      }
+
+      async function sendAtEnd() {
+        const payload = {
+          secret: SHARED_SECRET,            // required by your script
+          participantId,
+          meta: {
+            started_at: window.__exp_started_at,
+            userAgent: navigator.userAgent
+          },
+          trials: trialBuffer
+        };
+
+        if (statusEl()) statusEl().textContent = "Uploading…";
+
         try {
-          const trialsRef = collection(db, "experiments", "faces_demo", "trials");
-          await addDoc(trialsRef, {
-            participantId,
-            createdAt: serverTimestamp(),
-            ...trialData
+          const res = await fetch(SCRIPT_URL, {
+            method: "POST",
+            headers: { "Content-Type": "text/plain" }, // avoids CORS preflight
+            body: JSON.stringify(payload)
           });
-          console.log("✅ Trial saved");
+          const text = await res.text();
+          console.log("Apps Script reply:", text);
+          if (statusEl()) statusEl().textContent = `Server replied: ${text}`;
         } catch (e) {
-          console.error("❌ Error saving trial:", e);
+          console.error("Upload failed:", e);
+          if (statusEl()) statusEl().textContent = "Upload failed (see console)";
         }
-      };
+      }
     </script>
 
-    <!-- 🧠 Your jsPsych experiment -->
+    <!-- 🧠 jsPsych experiment -->
     <script>
       window.addEventListener('load', function () {
-
         const image_files = [
           "images_test/portrait_1.png",
           "images_test/portrait_2.png",
@@ -80,19 +91,17 @@
         const N_RANDOM = 3;
 
         const jsPsych = initJsPsych({
-          on_data_update: async (data) => {
-            // Save each trial to Firestore as it finishes
-            if (window.saveTrial) await window.saveTrial(data);
-          },
-          on_finish: () => {
-            // Local download fallback
-            try { jsPsych.data.get().localSave('csv', 'faces_demo_data.csv'); } catch(e) { }
+          on_data_update: bufferTrial, // buffer per trial, don't POST each time
+          on_finish: async () => {
+            await sendAtEnd(); // single POST at the end
+            try { jsPsych.data.get().localSave('csv', 'faces_demo_data.csv'); } catch(e) {}
           },
           override_safe_mode: true
         });
 
         const pid = Math.random().toString(36).slice(2, 8);
-        jsPsych.data.addProperties({ participant_id: pid, started_at: new Date().toISOString() });
+        window.__exp_started_at = new Date().toISOString();
+        jsPsych.data.addProperties({ participant_id: pid, started_at: window.__exp_started_at });
 
         const preload = {
           type: jsPsychPreload,
