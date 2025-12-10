@@ -1,0 +1,689 @@
+<!doctype html>
+<html lang="fa" dir="ltr">
+  <head>
+    <meta charset="utf-8" />
+    <title>SATI_exp_full</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <!-- Farsi-capable font -->
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600&display=swap"
+    />
+
+    <!-- jsPsych core (v8.2.2) -->
+    <script src="https://unpkg.com/jspsych@8.2.2"></script>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/jspsych@8.2.2/css/jspsych.css"
+    />
+
+    <!-- jsPsych plugins -->
+    <script src="https://unpkg.com/@jspsych/plugin-instructions@2.1.0"></script>
+    <script src="https://unpkg.com/@jspsych/plugin-html-slider-response@2.1.0"></script>
+    <script src="https://unpkg.com/@jspsych/plugin-survey-multi-choice@2.1.0"></script>
+    <script src="https://unpkg.com/@jspsych/plugin-survey-text@2.1.0"></script>
+    <script src="https://unpkg.com/@jspsych/plugin-survey-likert@2.1.0"></script>
+
+    <style>
+      body {
+        max-width: 900px;
+        margin: 2rem auto;
+        font-family: "Vazirmatn", system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", "Tahoma", sans-serif;
+        direction: ltr;
+        text-align: left;
+      }
+
+      .jspsych-content,
+      .jspsych-content-wrapper,
+      .jspsych-instructions p,
+      .jspsych-instructions h2,
+      .jspsych-instructions h3,
+      .jspsych-btn {
+        font-family: "Vazirmatn", system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", "Tahoma", sans-serif !important;
+        direction: ltr;
+        text-align: left;
+      }
+
+      .face {
+        display: block;
+        margin: 0 auto 1rem;
+        max-width: 320px;
+        height: auto;
+        border-radius: 8px;
+      }
+
+      .note {
+        font-size: 0.9rem;
+        color: #666;
+        margin-top: 0.25rem;
+        text-align: center;
+      }
+
+      #upload-status {
+        text-align: center;
+        color: #666;
+        margin: 0.5rem 0 1rem 0;
+        font-size: 0.9rem;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="upload-status"></div>
+
+    <script>
+      /************** GOOGLE APPS SCRIPT / GOOGLE SHEETS SENDER **************/
+
+      // Your deployed Web App URL (must end with /exec)
+      const SCRIPT_URL =
+        "https://script.google.com/macros/s/AKfycbxidwfVa_dt907WHFEDqBFrfHwKXvF65AUij1TtO2N-o0ObLJg1Jtuq-zeIq_cpk6XE/exec";
+
+      // MUST match the SHARED_SECRET in your Apps Script
+      const SHARED_SECRET = "abc123-change-me";
+
+      // Unique ID per browser session
+      const participantId = crypto.randomUUID();
+
+      // Buffer to store all trial data before sending
+      const trialBuffer = [];
+      const statusEl = () => document.getElementById("upload-status");
+
+      // Called on each trial; we push a compact record into trialBuffer
+      function bufferTrial(d) {
+        trialBuffer.push({
+          t: d.trial_type ?? null,
+          section: d.section ?? null,
+          item: d.item ?? null,
+          page: d.page ?? null,
+          img: d.image ?? null,
+          audio: d.audio ?? null,
+          rt: d.rt ?? null,
+          resp: d.response ?? null,
+          face_nat: d.face_nationality ?? null,
+          voice_nat: d.voice_nationality ?? null,
+          assigned_nat: d.assigned_nationality ?? null,
+          question_name: d.question_name ?? null,
+          condition: d.condition ?? null,
+          trial_index: d.trial_index ?? null,
+          ts: new Date().toISOString(),
+        });
+      }
+
+      // Called at the end of the experiment: sends all buffered data to Apps Script
+      async function sendAtEnd() {
+        const payload = {
+          secret: SHARED_SECRET,
+          participantId,
+          meta: {
+            started_at: window.__exp_started_at,
+            userAgent: navigator.userAgent,
+          },
+          trials: trialBuffer,
+        };
+
+        if (statusEl()) statusEl().textContent = "در حال ارسال داده‌ها…";
+
+        try {
+          const res = await fetch(SCRIPT_URL, {
+            method: "POST",
+            headers: { "Content-Type": "text/plain" }, // text/plain avoids CORS preflight
+            body: JSON.stringify(payload),
+          });
+          const text = await res.text();
+          console.log("Apps Script reply:", text);
+          if (statusEl()) statusEl().textContent = `پاسخ سرور: ${text}`;
+        } catch (e) {
+          console.error("Upload failed:", e);
+          if (statusEl())
+            statusEl().textContent =
+              "ارسال داده‌ها ناموفق بود (جزئیات در کنسول).";
+        }
+      }
+    </script>
+
+    <!-- ============================ MAIN jsPsych EXPERIMENT ============================ -->
+    <script>
+      console.log("Script started");
+
+      /* --------- Initialize jsPsych --------- */
+      const jsPsych = initJsPsych({
+        show_progress_bar: true,
+        auto_update_progress_bar: true,
+        on_data_update: bufferTrial,
+        async on_finish() {
+          await sendAtEnd();
+          try {
+            jsPsych.data.get().localSave("csv", "SATI_data.csv");
+          } catch (e) {
+            console.warn("Local save failed:", e);
+          }
+        },
+        override_safe_mode: true,
+      });
+
+      const pid = Math.random().toString(36).slice(2, 8);
+      const started_at = new Date().toISOString();
+      window.__exp_started_at = started_at;
+
+      // 1–6: 2 (gender) × 3 (label birthplace)
+      const random_group = jsPsych.randomization.sampleWithoutReplacement(
+        [1, 2, 3, 4, 5, 6],
+        1
+      )[0];
+
+      // label birthplace (between-subjects)
+      let assigned_nationality;
+      if (random_group === 1 || random_group === 2) {
+        assigned_nationality = "Ir";
+      } else if (random_group === 3 || random_group === 4) {
+        assigned_nationality = "Af";
+      } else {
+        assigned_nationality = "Taj";
+      }
+
+      const nationality_labels = {
+        Ir: "ایران",
+        Af: "افغانستان",
+        Taj: "تاجیکستان",
+      };
+
+      // gender folder (between-subjects)
+      const folder = random_group % 2 === 1 ? "female" : "male";
+
+      jsPsych.data.addProperties({
+        participant_id: pid,
+        started_at: started_at,
+        random_group: random_group,
+        assigned_nationality: assigned_nationality,
+        gender_of_faces: folder,
+      });
+
+      /* --------- Simple welcome screen --------- */
+      const welcome = {
+        type: jsPsychInstructions,
+        pages: [
+          `
+          <h2>خوش آمدید</h2>
+          <p>در این مطالعه، ابتدا به چند سؤال کلی پاسخ می‌دهید و سپس چهره‌ها و صداهایی را مشاهده و ارزیابی خواهید کرد.</p>
+          <p>برای شروع، روی «ادامه» کلیک کنید.</p>
+        `,
+        ],
+        show_clickable_nav: true,
+        button_label_next: "ادامه",
+        button_label_previous: "قبلی",
+        data: { section: "welcome" },
+      };
+
+      /* --------- Demographics --------- */
+
+      const gender_question = {
+        type: jsPsychSurveyMultiChoice,
+        preamble: `
+          <h3>اطلاعات جمعیت‌شناختی</h3>
+          <p>لطفاً جنسیت خود را مشخص کنید.</p>
+        `,
+        questions: [
+          {
+            prompt: "جنسیت شما چیست؟",
+            options: [
+              "زن",
+              "مرد",
+              "غیردوگانه / جنسیت دیگر",
+              "نمی‌خواهم پاسخ دهم",
+            ],
+            required: true,
+            name: "gender_self",
+          },
+        ],
+        button_label: "ادامه",
+        data: { section: "demographics", item: "gender_self" },
+      };
+
+      const age_question = {
+        type: jsPsychSurveyText,
+        preamble: `
+          <h3>اطلاعات جمعیت‌شناختی</h3>
+          <p>لطفاً سن خود را وارد کنید.</p>
+        `,
+        questions: [
+          {
+            prompt: "سن شما چند سال است؟",
+            placeholder: "مثلاً 32",
+            required: true,
+            name: "age",
+          },
+        ],
+        button_label: "ادامه",
+        on_finish: (d) => {
+          if (d.response && typeof d.response.age === "string") {
+            const n = Number(d.response.age.trim().replace(/[^\d]/g, ""));
+            d.age_num = Number.isFinite(n) ? n : null;
+          }
+        },
+        data: { section: "demographics", item: "age" },
+      };
+
+      /* --------- SDO (Likert) --------- */
+
+      const sdo_items = [
+        {
+          text: "برخی از گروه‌های مردم باید در جای خودشان نگه داشته شوند.",
+          name: "SDO_dom_1",
+        },
+        {
+          text: "در یک جامعه‌ی ایده‌آل، لازم است بعضی گروه‌ها جایگاه بالاتری داشته باشند و برخی دیگر پایین‌تر باشند.",
+          name: "SDO_dom_2",
+        },
+        {
+          text: "بعضی از گروه‌ها ذاتاً از گروه‌های دیگر پایین‌تر هستند.",
+          name: "SDO_dom_3",
+        },
+        {
+          text: "گروه‌های پایین جامعه به اندازه‌ی گروه‌های بالایی شایسته‌اند.",
+          name: "SDO_dom_4", // reverse-scored
+        },
+        {
+          text: "سلطه‌ی یک گروه بر دیگران اصل درستی نیست.",
+          name: "SDO_dom_5", // reverse-scored
+        },
+        {
+          text: "نباید برای برابری میان گروه‌ها پافشاری کنیم.",
+          name: "SDO_AE_1",
+        },
+        {
+          text: "لازم نیست تلاش کنیم همه‌ی گروه‌ها کیفیت زندگی یکسانی داشته باشند.",
+          name: "SDO_AE_2",
+        },
+        {
+          text: "برابر کردن گروه‌ها کار عادلانه‌ای نیست.",
+          name: "SDO_AE_3",
+        },
+        {
+          text: "برابری میان گروه‌ها نباید هدف اصلی جامعه باشد.",
+          name: "SDO_AE_4",
+        },
+        {
+          text: "برای رسیدن به خواسته‌ها، گاهی لازم است از زور علیه گروه‌های دیگر استفاده کرد.",
+          name: "SDO6_1",
+        },
+        {
+          text: "اشکالی ندارد اگر بعضی گروه‌ها شانس بیشتری در زندگی داشته باشند.",
+          name: "SDO6_2",
+        },
+        {
+          text: "افزایش برابری اجتماعی برای جامعه مفید است.",
+          name: "SDO6_3", // reverse-scored
+        },
+        {
+          text: "وجود درآمد حداقلی برای تمام افراد جامعه یک الزام است.",
+          name: "SDO6_4", // reverse-scored
+        },
+      ];
+
+      const sdo_trials = sdo_items.map((item) => ({
+        type: jsPsychSurveyLikert,
+        preamble: `
+          <h3>نگرش‌های اجتماعی</h3>
+          <p>لطفاً میزان موافقت یا مخالفت خود را مشخص کنید.</p>
+          <p style="font-size:0.9em; color:#555;">
+            1 = کاملاً مخالفم، 7 = کاملاً موافقم
+          </p>
+        `,
+        questions: [
+          {
+            prompt: item.text,
+            labels: ["1", "2", "3", "4", "5", "6", "7"],
+            required: true,
+            name: item.name,
+          },
+        ],
+        button_label: "ادامه",
+        data: { section: "SDO", item: item.name },
+      }));
+
+      /* --------- RWA (Likert) --------- */
+
+      const RWA_items = [
+        {
+          text: "زنان هنگام ازدواج باید قول بدهند که از شوهرشان اطاعت کنند.",
+          name: "RWA1",
+        },
+        {
+          text: "کسانی که تغییر جنسیت داده‌اند به اندازه‌ی بقیهٔ مردم سالم و اخلاقی هستند.",
+          name: "RWA2",
+        },
+        {
+          text: "بی‌خدایان و کسانی که از دین‌های رسمی سرپیچی کرده‌اند، بدون شک به اندازهٔ کسانی که مرتب به عبادت می‌روند، خوب و درستکار هستند.",
+          name: "RWA3",
+        },
+        {
+          text: "تنها راه عبور کشور ما از بحران‌های پیشِ‌رو این است که به ارزش‌های باستانی خود برگردیم.",
+          name: "RWA4",
+        },
+        {
+          text: "هرکس باید بتواند سبک زندگی، باور دینی و گرایش جنسی خودش را داشته باشد، حتی اگر با بقیه متفاوت باشد.",
+          name: "RWA5",
+        },
+        {
+          text: "قوانین خدا دربارهٔ سقط جنین و ازدواج باید دقیقاً رعایت شوند، و کسانی که آن‌ها را زیر پا می‌گذارند باید به شدت مجازات شوند.",
+          name: "RWA6",
+        },
+        {
+          text: "جای زن هر جایی است که خودش می‌خواهد باشد. دوران اطاعت زنان از شوهران و هنجارهای اجتماعی، به‌طور کامل گذشته است.",
+          name: "RWA7",
+        },
+        {
+          text: "کشور ما زمانی تغییر خواهد کرد که به راه نیاکان آریایی احترام بگذاریم.",
+          name: "RWA8",
+        },
+        {
+          text: "هیچ «راه درست واحدی» برای زندگی وجود ندارد؛ هرکس باید راه خودش را بسازد.",
+          name: "RWA9",
+        },
+      ];
+
+      const RWA_trials = RWA_items.map((item) => ({
+        type: jsPsychSurveyLikert,
+        preamble: `
+          <h3>نگرش‌های اجتماعی</h3>
+          <p>لطفاً میزان موافقت یا مخالفت خود را مشخص کنید.</p>
+          <p style="font-size:0.9em; color:#555;">
+            1 = کاملاً مخالفم، 7 = کاملاً موافقم
+          </p>
+        `,
+        questions: [
+          {
+            prompt: item.text,
+            labels: ["1", "2", "3", "4", "5", "6", "7"],
+            required: true,
+            name: item.name,
+          },
+        ],
+        button_label: "ادامه",
+        data: { section: "RWA", item: item.name },
+      }));
+
+      /* --------- Stimulus setup for faces & voices --------- */
+
+      const nationalities = ["Ir", "Af", "Taj"]; // folder names
+
+      const images_per_nat = 5; // how many face files exist per nationality
+      const pick_per_nat = 3; // how many faces (and audios) we use per nationality
+      const audios_per_nat = 3; // how many audio files exist per nationality
+
+      function buildFacePool(nat) {
+        const pool = [];
+        for (let i = 1; i <= images_per_nat; i++) {
+          pool.push(`./face_images/${folder}/${nat}/${i}.png`);
+        }
+        return pool;
+      }
+
+      function buildAudioPool(nat) {
+        const pool = [];
+        for (let i = 1; i <= audios_per_nat; i++) {
+          pool.push(`./audio/${folder}/${nat}/${i}.mp3`);
+        }
+        return pool;
+      }
+
+      // 3 faces per nationality
+      let balanced_pool = [];
+      nationalities.forEach((nat) => {
+        const face_pool = buildFacePool(nat);
+        const face_sample = jsPsych.randomization.sampleWithoutReplacement(
+          face_pool,
+          pick_per_nat
+        );
+        balanced_pool = balanced_pool.concat(
+          face_sample.map((src) => ({ src, nationality: nat }))
+        );
+      });
+
+      // shuffle 9 faces
+      const shuffled_faces = jsPsych.randomization.shuffle(balanced_pool);
+
+      // 3 audios per nationality (voice nationality)
+      const audio_pool_by_nat = {};
+
+      nationalities.forEach((nat) => {
+        const apool = buildAudioPool(nat);
+        const asample = jsPsych.randomization.sampleWithoutReplacement(
+          apool,
+          pick_per_nat
+        );
+        audio_pool_by_nat[nat] = jsPsych.randomization.shuffle([...asample]);
+      });
+
+      // For each face nationality: random permutation of voice nationalities
+      const voice_assignment_by_face_nat = {};
+      const face_counter_by_nat = {};
+
+      nationalities.forEach((nat) => {
+        voice_assignment_by_face_nat[nat] = jsPsych.randomization.shuffle(
+          [...nationalities]
+        );
+        face_counter_by_nat[nat] = 0;
+      });
+
+      /* --------- Questions for each face --------- */
+
+      const face_question_items = [
+        {
+          name: "crime_likelihood",
+          prompt: "به نظر شما، این فرد تا چه حد ممکن است مجرم باشد؟ (0-100)",
+        },
+        {
+          name: "dangerousness",
+          prompt: "به نظر شما، این فرد تا چه حد خطرناک است؟ (0-100)",
+        },
+        {
+          name: "trustworthiness",
+          prompt: "به نظر شما، این فرد تا چه حد قابل اعتماد است؟ (0-100)",
+        },
+        {
+          name: "warmth",
+          prompt: "این فرد تا چه حد فردی گرم و مهربان به نظر می‌رسد؟ (0-100)",
+        },
+        {
+          name: "intelligence",
+          prompt: "این فرد تا چه اندازه باهوش به نظر می‌رسد؟ (0-100)",
+        },
+        {
+          name: "effort",
+          prompt: "این فرد تا چه اندازه پرتلاش به نظر می‌رسد؟ (0-100)",
+        },
+        {
+          name: "confidence",
+          prompt: "تا چه حد به پاسخی که دادید اطمینان دارید؟ (0-100)",
+        },
+        {
+          name: "stereotypical_afghan",
+          prompt:
+            "به نظر شما این چهره تا چه حد با تصور کلیشه‌ای از یک فرد افغان مطابقت دارد؟ (0-100)",
+        },
+        {
+          name: "attractiveness",
+          prompt: "این چهره از نظر جذابیت چگونه است؟ (0-100)",
+        },
+        {
+          name: "wallet_truth",
+          prompt:
+            "اگر این فرد ادعا کند کیف پولش گم شده، به نظر شما چقدر احتمال دارد راست بگوید؟ (0-100)",
+        },
+        {
+          name: "wallet_help",
+          prompt:
+            "اگر فرض کنیم راست می‌گوید، تا چه حد احتمال دارد که به او کمک کنید؟ (0-100)",
+        },
+        {
+          name: "neighbor_okay",
+          prompt:
+            "اگر این فرد همسایه‌ی جدید شما باشد، تا چه حد از این موضوع رضایت دارید؟ (0-100)",
+        },
+      ];
+
+      /* --------- Build trials: faces × questions --------- */
+
+      const face_trials = shuffled_faces.flatMap((item, faceIdx) => {
+        const face_nat = item.nationality;
+
+        // which face number within this nationality? (0,1,2)
+        const thisFaceIndex = face_counter_by_nat[face_nat]++;
+        // which voice nationality for this face?
+        const voice_nat =
+          voice_assignment_by_face_nat[face_nat][thisFaceIndex];
+
+        // pick one audio file from that voice nationality pool
+        let audio_list = audio_pool_by_nat[voice_nat] || [];
+        let audio_src =
+          audio_list.length > 0
+            ? audio_list.pop()
+            : `./audio/${folder}/${voice_nat}/1.mp3`; // fallback
+
+        const condition_label = `face_${face_nat}_voice_${voice_nat}_label_${assigned_nationality}`;
+
+        // Intro page with audio (Next always available)
+        const intro_trial = {
+          type: jsPsychInstructions,
+          pages: [
+            `
+            <img class="face" src="${item.src}" alt="چهره ${
+              faceIdx + 1
+            }" />
+            <div class="note">تصویر ${faceIdx + 1} از ${
+              shuffled_faces.length
+            }</div>
+
+            <h3>این فرد در ${
+              nationality_labels[assigned_nationality]
+            } به دنیا آمده است.</h3>
+            <p>لطفاً در صورت تمایل به صدای این فرد گوش کنید، سپس روی دکمه‌ی ادامه کلیک کنید.</p>
+
+            <div style="text-align:center; margin-top:1rem;">
+              <audio id="face-audio-${faceIdx}" src="${audio_src}"></audio>
+              <button id="play-audio-btn-${faceIdx}" type="button" class="jspsych-btn" style="margin-top:0.5rem;">
+                پخش صدا
+              </button>
+            </div>
+          `,
+          ],
+          show_clickable_nav: true,
+          button_label_next: "شروع پرسش‌ها",
+          button_label_previous: "قبلی",
+
+          on_load: () => {
+            const audio = document.getElementById(`face-audio-${faceIdx}`);
+            const playBtn = document.getElementById(
+              `play-audio-btn-${faceIdx}`
+            );
+
+            // no gating anymore – user can always click "Next"
+            if (playBtn && audio) {
+              playBtn.addEventListener("click", () => {
+                audio.currentTime = 0;
+                audio.play().catch((err) => {
+                  console.warn("Audio play failed:", err);
+                });
+              });
+            }
+          },
+
+          data: {
+            section: "face_intro",
+            image: item.src,
+            face_nationality: face_nat,
+            voice_nationality: voice_nat,
+            assigned_nationality: assigned_nationality,
+            face_index: faceIdx + 1,
+            folder: folder,
+            audio: audio_src,
+            condition: condition_label,
+          },
+        };
+
+        // Slider questions for this face
+        const question_trials = face_question_items.map((q, qIdx) => ({
+          type: jsPsychHtmlSliderResponse,
+          stimulus: `
+            <img class="face" src="${item.src}" alt="چهره ${
+            faceIdx + 1
+          }" />
+            <div class="note">تصویر ${faceIdx + 1} از ${
+            shuffled_faces.length
+          }</div>
+            <p style="margin-top:1rem;">${q.prompt}</p>
+
+            <p style="font-size:1.1em; margin-top:1.5rem;">
+              مقدار انتخابی: <span id="selected_value_display">50</span>
+            </p>
+          `,
+          min: 0,
+          max: 100,
+          step: 1,
+          slider_start: 50,
+          labels: ["0","10","20","30","40","50","60","70","80","90","100"],
+          require_movement: true,
+          button_label: "ادامه",
+
+          on_load: () => {
+            const slider = document.getElementById(
+              "jspsych-html-slider-response-response"
+            );
+            const display =
+              document.getElementById("selected_value_display");
+
+            if (slider && display) {
+              display.textContent = slider.value;
+              slider.addEventListener("input", () => {
+                display.textContent = slider.value;
+              });
+            }
+          },
+
+          data: {
+            section: "faces",
+            image: item.src,
+            face_nationality: face_nat,
+            voice_nationality: voice_nat,
+            assigned_nationality: assigned_nationality,
+            face_index: faceIdx + 1,
+            question_name: q.name,
+            question_index: qIdx + 1,
+            folder: folder,
+            audio: audio_src,
+            condition: condition_label,
+          },
+
+          on_finish: (data) => {
+            data.value_num = data.response;
+          },
+        }));
+
+        return [intro_trial, ...question_trials];
+      });
+
+      /* --------- Run experiment --------- */
+
+      try {
+        jsPsych.run([
+          welcome,
+          gender_question,
+          age_question,
+          ...sdo_trials,
+         ...RWA_trials,
+          ...face_trials,
+        ]);
+      } catch (e) {
+        console.error("Error in jsPsych.run:", e);
+        document.body.innerHTML =
+          "<h2>خطا در اجرای آزمایش</h2><p>" +
+          e.message +
+          "</p><p>برای جزئیات بیشتر، کنسول مرورگر را بررسی کنید.</p>";
+      }
+    </script>
+  </body>
+</html>
