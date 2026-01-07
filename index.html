@@ -79,6 +79,74 @@
         margin: 0.5rem 0 1rem 0;
         font-size: 0.9rem;
       }
+
+
+
+
+    /* ================== MOBILE TWEAKS ================== */
+@media (max-width: 600px) {
+
+  /* Use full width, a bit less margin */
+  body {
+    max-width: 100%;
+    margin: 0;
+    padding: 0.75rem;
+  }
+
+  .jspsych-content-wrapper,
+  .jspsych-content {
+    max-width: 100% !important;
+    width: 100% !important;
+    margin: 0 auto !important;
+  }
+
+  /* Face images: never overflow */
+  .face {
+    max-width: 100%;
+    height: auto;
+  }
+
+  /* Main text / questions a bit smaller but readable */
+  .likert-prompt {
+    font-size: 18px;
+    line-height: 1.6;
+  }
+
+  .jspsych-instructions p,
+  .jspsych-instructions h2,
+  .jspsych-instructions h3 {
+    font-size: 18px;
+    line-height: 1.6;
+  }
+
+  /* Slider should fit screen */
+  .jspsych-html-slider-response .jspsych-slider {
+    width: 100% !important;
+    max-width: 100%;
+  }
+
+  /* Likert scale: avoid horizontal scrolling */
+  .jspsych-survey-likert-opts {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 0.5rem;
+  }
+
+  /* Make buttons easier to tap */
+  .jspsych-btn {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.9rem 1rem;
+    font-size: 1rem;
+    margin-top: 1.2rem;
+  }
+
+  /* Progress bar – a bit more space */
+  #jspsych-progressbar-container {
+    margin: 0.5rem 0 1rem 0;
+  }
+}
+
     </style>
   </head>
 
