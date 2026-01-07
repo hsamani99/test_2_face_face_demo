@@ -143,12 +143,7 @@
     max-width: 100%;
   }
 
-  /* Likert scale: avoid horizontal scrolling */
-  .jspsych-survey-likert-opts {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    padding-bottom: 0.5rem;
-  }
+
 
   /* Make buttons easier to tap */
   .jspsych-btn {
@@ -158,6 +153,28 @@
     font-size: 0.95rem;
     margin-top: 1rem;
     display: inline-block;
+  }
+
+   /* Likert container: full width on small screens */
+  .jspsych-survey-likert-opts {
+    max-width: 100%;
+    flex-wrap: wrap;          /* allow items to go to 2 rows if needed */
+    justify-content: space-between;
+  }
+
+  /* Each option can wrap and be narrower */
+  .jspsych-survey-likert-option {
+    flex: 1 1 28%;            /* ~3 per row on very small screens */
+    max-width: 32%;
+    margin-bottom: 0.75rem;
+    text-align: center;
+  }
+
+  /* Labels: smaller text, allow line breaks, remove rotation */
+  .jspsych-survey-likert-option label {
+    font-size: 0.8rem;
+    white-space: normal;      /* allow wrapping onto 2 lines */
+    transform: none !important;   /* cancel any rotation you added earlier */
   }
 
 
