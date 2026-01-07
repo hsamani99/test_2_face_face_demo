@@ -80,6 +80,13 @@
         font-size: 0.9rem;
       }
 
+        .jspsych-html-slider-response .jspsych-slider {
+    width: 100% !important;      /* take full width of container */
+    max-width: 600px;            /* still looks nice on desktop */
+    margin-left: auto;
+    margin-right: auto;
+    box-sizing: border-box;
+  }
 
 
 
@@ -97,7 +104,18 @@
   .jspsych-content {
     max-width: 100% !important;
     width: 100% !important;
+    padding: 0 8px; 
     margin: 0 auto !important;
+    box-sizing: border-box;
+  }
+
+
+    .jspsych-content-wrapper,
+  .jspsych-content {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 0 8px;     /* small side padding prevents touching edge */
+    box-sizing: border-box;
   }
 
   /* Face images: never overflow */
@@ -141,6 +159,9 @@
     margin-top: 1rem;
     display: inline-block;
   }
+
+
+  
 
   /* Center the navigation buttons in instructions / surveys */
   .jspsych-content-wrapper,
@@ -753,7 +774,7 @@ on_load: () => {
           step: 10,
           slider_start: 50,
           labels: ["(اصلا)0","50","(بسیار)100"],
-          slider_width: 600,
+          //slider_width: 600,
           require_movement: true,
           button_label: "ادامه",
 
@@ -858,8 +879,8 @@ const policy_trials = policy_items.map((item) => ({
           welcome,
           gender_question,
          age_question,
-        //  ...sdo_trials,
-        //  ...RWA_trials,
+          ...sdo_trials,
+          ...RWA_trials,
           ...face_trials,
           ...policy_trials
         ]);
