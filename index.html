@@ -134,16 +134,18 @@
 
   /* Make buttons easier to tap */
   .jspsych-btn {
-    width: 100%;
-    box-sizing: border-box;
-    padding: 0.9rem 1rem;
-    font-size: 1rem;
-    margin-top: 1.2rem;
+    width: auto;                 /* no longer 100% */
+    min-width: 8rem;             /* reasonable tap size */
+    padding: 0.6rem 1.2rem;
+    font-size: 0.95rem;
+    margin-top: 1rem;
+    display: inline-block;
   }
 
-  /* Progress bar – a bit more space */
-  #jspsych-progressbar-container {
-    margin: 0.5rem 0 1rem 0;
+  /* Center the navigation buttons in instructions / surveys */
+  .jspsych-content-wrapper,
+  .jspsych-content {
+    text-align: center;
   }
 }
 
@@ -748,9 +750,9 @@ on_load: () => {
           `,
           min: 0,
           max: 100,
-          step: 1,
+          step: 10,
           slider_start: 50,
-          labels: ["(اصلا)0","10","20","30","40","50","60","70","80","90","(بسیار)100"],
+          labels: ["(اصلا)0","50","(بسیار)100"],
           slider_width: 600,
           require_movement: true,
           button_label: "ادامه",
@@ -856,8 +858,8 @@ const policy_trials = policy_items.map((item) => ({
           welcome,
           gender_question,
          age_question,
-          ...sdo_trials,
-          ...RWA_trials,
+        //  ...sdo_trials,
+        //  ...RWA_trials,
           ...face_trials,
           ...policy_trials
         ]);
