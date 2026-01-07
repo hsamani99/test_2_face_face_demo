@@ -234,7 +234,7 @@
         type: jsPsychSurveyMultiChoice,
         preamble: `
           <h3>اطلاعات جمعیت‌شناختی</h3>
-          <p>لطفاً جنسیت خود را مشخص کنید.</p>
+          <p>لطفاً جنسیت خود را مشخص کنید</p>
         `,
         questions: [
           {
@@ -257,7 +257,7 @@
         type: jsPsychSurveyText,
         preamble: `
           <h3>اطلاعات جمعیت‌شناختی</h3>
-          <p>لطفاً سن خود را وارد کنید.</p>
+          <p>لطفاً سن خود را وارد کنید</p>
         `,
         questions: [
           {
@@ -785,13 +785,13 @@ const policy_trials = policy_items.map((item) => ({
 
       try {
         jsPsych.run([
-        //  welcome,
-        //  gender_question,
-        // age_question,
-        //  ...sdo_trials,
-        //  ...RWA_trials,
+          welcome,
+          gender_question,
+         age_question,
+          ...sdo_trials,
+          ...RWA_trials,
           ...face_trials,
-        //  ...policy_trials
+          ...policy_trials
         ]);
       } catch (e) {
         console.error("Error in jsPsych.run:", e);
